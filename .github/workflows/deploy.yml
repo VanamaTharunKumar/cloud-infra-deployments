@@ -1,12 +1,9 @@
 name: Terraform Deployment
 
 on:
-  workflow_dispatch:
-    inputs:
-      deployment_id:
-        description: "Deployment Folder ID"
-        required: true
-        type: string
+  push:
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -18,14 +15,16 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
 
-    defaults:
-      run:
-        working-directory: terraform/deployments/${{ github.event.inputs.deployment_id }}
-
     steps:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Find Deployment Folder
+        id: folder
+        run: |
+          DEPLOYMENT=$(ls -td terraform/deployments/* | head -1)
+          echo "folder=$DEPLOYMENT" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -34,13 +33,17 @@ jobs:
         run: terraform version
 
       - name: Terraform Init
+        working-directory: ${{ steps.folder.outputs.folder }}
         run: terraform init
 
       - name: Terraform Validate
+        working-directory: ${{ steps.folder.outputs.folder }}
         run: terraform validate
 
       - name: Terraform Plan
+        working-directory: ${{ steps.folder.outputs.folder }}
         run: terraform plan -out=tfplan
 
       - name: Terraform Apply
+        working-directory: ${{ steps.folder.outputs.folder }}
         run: terraform apply -auto-approve tfplan
